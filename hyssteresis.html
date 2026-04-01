@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hysteresis Loop Explorer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0d0f14;
+    --bg2:       #13161e;
+    --bg3:       #1a1e28;
+    --border:    rgba(255,255,255,0.08);
+    --border2:   rgba(255,255,255,0.14);
+    --text:      #e8eaf0;
+    --muted:     #7a8099;
+    --accent:    #6ee7b7;
+    --accent2:   #818cf8;
+    --loop:      #818cf8;
+    --annot:     #6ee7b7;
+    --mono:      'IBM Plex Mono', monospace;
+    --sans:      'IBM Plex Sans', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 1.5rem 2rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  header p {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ── sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    overflow-y: auto;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  /* presets */
+  .presets {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .preset-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s, background 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .preset-btn:hover {
+    border-color: var(--border2);
+    background: #1f2330;
+  }
+
+  .preset-btn.active {
+    border-color: var(--accent2);
+    background: rgba(129,140,248,0.1);
+    color: #c7d2fe;
+  }
+
+  .preset-btn .tag {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--sans);
+    font-weight: 300;
+  }
+
+  .preset-btn.active .tag { color: #818cf8; }
+
+  /* sliders */
+  .sliders { display: flex; flex-direction: column; gap: 1rem; }
+
+  .slider-row { display: flex; flex-direction: column; gap: 5px; }
+
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
+  .slider-header .name {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+
+  .slider-header .val {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+
+  .slider-hints {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #4a5070;
+    margin-top: 1px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--bg3);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent2);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+  }
+
+  input[type=range]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent2);
+    border: 2px solid var(--bg);
+    cursor: pointer;
+  }
+
+  /* metrics */
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .metric {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+
+  .metric .mlabel {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    margin-bottom: 4px;
+  }
+
+  .metric .mval {
+    font-family: var(--mono);
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .metric .munit {
+    font-size: 10px;
+    color: var(--muted);
+    margin-left: 2px;
+  }
+
+  /* ── main canvas area ── */
+  .main {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1rem;
+    min-width: 0;
+  }
+
+  .canvas-wrap {
+    flex: 1;
+    min-height: 340px;
+    position: relative;
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* insight */
+  .insight {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent2);
+    border-radius: 0 6px 6px 0;
+    padding: 0.75rem 1rem;
+    background: rgba(129,140,248,0.05);
+    font-size: 12px;
+    line-height: 1.7;
+    color: #b0b8d0;
+    min-height: 56px;
+    transition: opacity 0.2s;
+  }
+
+  .insight strong {
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* character type badge */
+  .char-badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    letter-spacing: 0.06em;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .char-hard   { background: rgba(251,113,133,0.15); color: #fda4af; border: 1px solid rgba(251,113,133,0.3); }
+  .char-soft   { background: rgba(110,231,183,0.12); color: #6ee7b7; border: 1px solid rgba(110,231,183,0.25); }
+  .char-sp     { background: rgba(251,191,36,0.12);  color: #fcd34d; border: 1px solid rgba(251,191,36,0.25); }
+  .char-mid    { background: rgba(129,140,248,0.12); color: #a5b4fc; border: 1px solid rgba(129,140,248,0.25); }
+
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>hysteresis loop explorer</h1>
+  <p>Interactive teaching tool — adjust parameters or select a material preset</p>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-label">Material presets</div>
+      <div class="presets" id="presets"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Parameters</div>
+      <div class="sliders" id="sliders"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Loop metrics (normalised)</div>
+      <div class="metrics">
+        <div class="metric"><div class="mlabel">Hc</div><div class="mval" id="m-hc">—</div></div>
+        <div class="metric"><div class="mlabel">Mr / Ms</div><div class="mval" id="m-mr">—</div></div>
+        <div class="metric"><div class="mlabel">Ms</div><div class="mval" id="m-ms">—</div></div>
+        <div class="metric"><div class="mlabel">Loop area</div><div class="mval" id="m-area">—</div></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <main class="main">
+    <div class="canvas-wrap">
+      <canvas id="c"></canvas>
+    </div>
+    <div class="insight" id="insight">
+      Select a preset or move a slider to see the physical interpretation.
+    </div>
+  </main>
+</div>
+
+<script>
+// ── presets ──────────────────────────────────────────────────────────────────
+const PRESETS = [
+  {
+    id: 'iron',
+    name: 'Iron (α-Fe)',
+    tag: 'soft metal',
+    char: 'soft',
+    grain: 8, temp: 3, defect: 2, aniso: 3,
+    note: '<strong>Iron</strong> is a classic soft ferromagnet. Coarse, low-defect grains allow domain walls to sweep easily, giving low Hc and low hysteretic loss. High Ms makes it the workhorse of electromagnets and transformer cores.'
+  },
+  {
+    id: 'magnetite',
+    name: 'Magnetite (Fe₃O₄)',
+    tag: 'oxide, mixed',
+    char: 'mid',
+    grain: 5, temp: 3, defect: 4, aniso: 5,
+    note: '<strong>Magnetite</strong> sits in the middle ground. Fine to medium grains give moderate Hc. Its mixed-valence Fe²⁺/Fe³⁺ structure gives reasonable Ms for an oxide. At fine grain sizes it transitions toward single-domain (SD) behavior — key for paleomagnetism.'
+  },
+  {
+    id: 'hematite',
+    name: 'Hematite (α-Fe₂O₃)',
+    tag: 'hard oxide',
+    char: 'hard',
+    grain: 3, temp: 3, defect: 5, aniso: 8,
+    note: '<strong>Hematite</strong> is a canted antiferromagnet with very high magnetocrystalline anisotropy. This gives it high Hc despite weak Ms (the "hard" loop shape), making it a dominant carrier of remanence in ancient rocks and red beds.'
+  },
+  {
+    id: 'permalloy',
+    name: 'Permalloy (Ni₈₀Fe₂₀)',
+    tag: 'ultra-soft alloy',
+    char: 'soft',
+    grain: 9, temp: 2, defect: 1, aniso: 1,
+    note: '<strong>Permalloy</strong> is engineered to be magnetically ultra-soft. The Ni-Fe composition is tuned to nearly zero magnetocrystalline anisotropy and zero magnetostriction, leaving almost no coercivity. The loop is vanishingly thin — minimal energy loss per cycle.'
+  },
+  {
+    id: 'ferritin',
+    name: 'Ferritin (biogenic)',
+    tag: 'superparamagnetic',
+    char: 'sp',
+    grain: 1, temp: 5, defect: 3, aniso: 2,
+    note: '<strong>Ferritin</strong> stores iron as a ~8 nm ferrihydrite core inside a protein shell. At room temperature these nanoparticles are superparamagnetic: thermal energy freely flips the moment, so there is no remanence and no coercivity. The loop collapses to an S-curve through the origin — the hallmark of SP behavior.'
+  },
+];
+
+// ── slider definitions ────────────────────────────────────────────────────────
+const SLIDERS = [
+  { id: 'grain',  label: 'Grain size',           lo: 'fine / SD',    hi: 'coarse / MD', min:1, max:10, step:0.5 },
+  // { id: 'temp',   label: 'Temperature',           lo: 'cold',         hi: 'near Tc',     min:1, max:10 },
+  // { id: 'defect', label: 'Defect / pinning density', lo: 'annealed', hi: 'deformed',    min:1, max:10 },
+  // { id: 'aniso',  label: 'Anisotropy (K)',        lo: 'isotropic',    hi: 'high K',      min:1, max:10 },
+];
+
+// ── state ─────────────────────────────────────────────────────────────────────
+const state = { grain:1, temp:1, defect:1, aniso:1 };
+let activePreset = null;
+let lastChanged = null;
+
+// ── build sidebar controls ────────────────────────────────────────────────────
+const presetsEl = document.getElementById('presets');
+PRESETS.forEach(p => {
+  const btn = document.createElement('button');
+  btn.className = 'preset-btn';
+  btn.dataset.id = p.id;
+  btn.innerHTML = `<span>${p.name}</span><span class="tag">${p.tag}</span>`;
+  btn.addEventListener('click', () => applyPreset(p));
+  presetsEl.appendChild(btn);
+});
+
+const slidersEl = document.getElementById('sliders');
+SLIDERS.forEach(s => {
+  const row = document.createElement('div');
+  row.className = 'slider-row';
+  row.innerHTML = `
+    <div class="slider-header">
+      <span class="name">${s.label}</span>
+      <span class="val" id="v-${s.id}">${state[s.id]}</span>
+    </div>
+    <input type="range" id="s-${s.id}" min="${s.min}" max="${s.max}" step="${s.step || 1}" value="${state[s.id]}">
+    <div class="slider-hints"><span>${s.lo}</span><span>${s.hi}</span></div>`;
+  slidersEl.appendChild(row);
+  document.getElementById(`s-${s.id}`).addEventListener('input', e => {
+    state[s.id] = +e.target.value;
+    document.getElementById(`v-${s.id}`).textContent = state[s.id];
+    lastChanged = s.id;
+    activePreset = null;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    updateInsight();
+    draw();
+  });
+});
+
+function applyPreset(p) {
+  activePreset = p.id;
+  Object.assign(state, { grain:p.grain, temp:p.temp, defect:p.defect, aniso:p.aniso });
+  SLIDERS.forEach(s => {
+    document.getElementById(`s-${s.id}`).value = state[s.id];
+    document.getElementById(`v-${s.id}`).textContent = state[s.id];
+  });
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.preset-btn[data-id="${p.id}"]`).classList.add('active');
+  document.getElementById('insight').innerHTML =
+    `<span class="char-badge char-${p.char}">${p.char}</span> ${p.note}`;
+  draw();
+}
+
+const insightMap = {
+  grain: v => v <= 3
+    ? 'Fine / single-domain grains: domain wall motion is suppressed, making reversal by wall displacement impossible. Hc peaks — this is where magnetically hard behavior lives.'
+    : v >= 8
+    ? 'Coarse / multi-domain grains: domain walls nucleate and sweep easily. Hc drops toward the soft end. High grain size also tends to lower remanence ratio Mr/Ms.'
+    : 'Intermediate grain size: transitional between SD and MD behavior. Pseudo-single-domain (PSD) grains exhibit complex reversal mechanisms.',
+  temp: v => v >= 8
+    ? 'Near the Curie temperature Tc: thermal energy destroys long-range spin order, collapsing both Ms and Hc toward zero. All hysteresis vanishes at Tc.'
+    : v <= 2
+    ? 'Low temperature: thermal fluctuations are minimal. Exchange coupling is strongest and Hc can be enhanced. Superparamagnetic particles may become blocked at low T.'
+    : 'Moderate temperature: Ms and Hc decrease with T roughly as (1 − T/Tc)ⁿ. Superparamagnetic grains remain unblocked unless temperature drops below their blocking temperature Tb.',
+  defect: v => v >= 7
+    ? 'High dislocation/defect density: domain walls pin strongly on lattice defects and stress fields, raising Hc significantly. Work-hardening and irradiation both have this effect.'
+    : v <= 2
+    ? 'Low defect density (well annealed): few pinning sites means domain walls sweep with almost no impediment. Classic soft behavior with low energy loss per cycle.'
+    : 'Moderate pinning: a balance between pinned and free wall segments. Intermediate Hc — typical of natural oxide grains with some lattice strain.',
+  aniso: v => v >= 7
+    ? 'High magnetocrystalline or shape anisotropy: a strong easy axis creates a large energy barrier for moment rotation, giving high Hc and a square loop. Essential for permanent magnet behavior.'
+    : v <= 2
+    ? 'Near-zero anisotropy: the moment rotates easily in any direction. The loop is sheared and Hc is very low. Permalloy is engineered to this extreme.'
+    : 'Moderate anisotropy: partial easy-axis control over reversal. Hc and loop squareness increase with K — typical of magnetite and titanomagnetite.',
+};
+
+function updateInsight() {
+  if (!lastChanged) return;
+  document.getElementById('insight').textContent = insightMap[lastChanged](state[lastChanged]);
+}
+
+// ── physics model ─────────────────────────────────────────────────────────────
+function lerp(a, b, t) { return a + (b - a) * t; }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function computeParams() {
+  const gN = (state.grain  - 1) / 9;
+  const tN = (state.temp   - 1) / 9;
+  const dN = (state.defect - 1) / 9;
+  const aN = (state.aniso  - 1) / 9;
+
+  const isSP = state.grain === 1;
+
+  // Base Hc increases as grain shrinks toward SD (smaller gN = finer grain)
+  let Hc = lerp(0.82, 0.18, gN) * (1 + 0.6 * aN) * (1 + 0.5 * dN) * (1 - 0.75 * tN);
+
+  // SP rolloff: below grain=3.5, Hc starts dropping back toward zero as
+  // relaxation time shortens toward the measurement window (SD→SP transition).
+  // At grain=1 (isSP) it hits zero. This mirrors the real Hc vs. size curve
+  // which peaks in the stable SD range then falls to zero at the SP threshold.
+  if (state.grain < 3.5) {
+    const rolloff = (state.grain - 1) / (3.5 - 1); // 0 at grain=1, 1 at grain=3.5
+    Hc *= rolloff;
+  }
+
+  Hc = clamp(Hc, isSP ? 0.0 : 0.03, 1.0);
+
+  const Ms = 1.0;
+
+  // MrRatio also tapers in the SP transition zone — remanence drops as grains
+  // start thermally relaxing, reaching zero at the SP threshold
+  let MrRatio = isSP ? 0.0 : clamp(lerp(0.85, 0.45, gN) * (1 - 0.5 * tN) * (1 + 0.2 * aN), 0.0, 0.98);
+  if (!isSP && state.grain < 3.5) {
+    const rolloff = (state.grain - 1) / (3.5 - 1);
+    MrRatio *= rolloff;
+  }
+  const Mr = Ms * MrRatio;
+
+  let shear = lerp(0.12, 0.65, gN) * (1 + 0.3 * tN) * (1 - 0.3 * aN);
+  shear = clamp(shear, isSP ? 0.7 : 0.05, 0.85);
+
+  return { Hc, Ms, Mr, shear, isSP, MrRatio };
+}
+
+function loopM(H, Hc, Ms, width, upper, isSP) {
+  if (isSP) return Ms * Math.tanh(H / width);
+  if (upper) return Ms * Math.tanh((H - Hc) / width);
+  return Ms * Math.tanh((H + Hc) / width);
+}
+
+// ── canvas drawing ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function draw() {
+  const W = canvas.parentElement.offsetWidth;
+  const H = canvas.parentElement.offsetHeight;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const p = computeParams();
+  const { Hc, Ms, Mr, shear, isSP, MrRatio } = p;
+
+  // update metrics
+  document.getElementById('m-hc').textContent   = Hc.toFixed(3);
+  document.getElementById('m-mr').textContent   = MrRatio.toFixed(3);
+  document.getElementById('m-ms').textContent   = Ms.toFixed(3);
+  const area = isSP ? '0.000' : (4 * Hc * Ms * 0.68).toFixed(3);
+  document.getElementById('m-area').textContent = area;
+
+  const mx = 58, my = 28, mr = 48, mb = 40;
+  const pw = W - mx - mr;
+  const ph = H - my - mb;
+  const cx = mx + pw / 2;
+  const cy = my + ph / 2;
+
+  const loopWidth = (isSP ? 0 : Hc) + Ms * (0.35 + shear * 2.2);
+  const Hmax = Math.max(Hc + loopWidth * 4.5, 0.55);
+  const toX = h => cx + (h / Hmax) * (pw / 2);
+  const toY = m => cy - (m / Ms) * (ph / 2) * 0.86;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+  ctx.lineWidth = 0.5;
+  ctx.setLineDash([4,6]);
+  for (const v of [-0.5, 0.5]) {
+    ctx.beginPath(); ctx.moveTo(toX(v*Hmax), my); ctx.lineTo(toX(v*Hmax), my+ph); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(mx, toY(v*Ms)); ctx.lineTo(mx+pw, toY(v*Ms)); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(mx, cy); ctx.lineTo(mx+pw, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, my); ctx.lineTo(cx, my+ph); ctx.stroke();
+
+  // axis arrow heads
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  function arrowHead(x, y, ang) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-7,4); ctx.lineTo(-7,-4); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  arrowHead(mx+pw, cy, 0);
+  arrowHead(cx, my, -Math.PI/2);
+
+  // axis labels
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '11px IBM Plex Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('H  (applied field →)', cx, H - 8);
+  ctx.save(); ctx.translate(14, cy); ctx.rotate(-Math.PI/2);
+  ctx.fillText('M  (magnetization)', 0, 0); ctx.restore();
+
+  // build loop points
+  const N = 300;
+  const upper = [], lower = [];
+  for (let i = 0; i <= N; i++) {
+    const H = lerp(-Hmax, Hmax, i/N);
+    upper.push([H, loopM(H, Hc, Ms, loopWidth, true,  isSP)]);
+    lower.push([H, loopM(H, Hc, Ms, loopWidth, false, isSP)]);
+  }
+
+  // filled loop area (very subtle)
+  if (!isSP) {
+    ctx.beginPath();
+    upper.forEach(([h,m], i) => { const x=toX(h),y=toY(m); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    lower.slice().reverse().forEach(([h,m]) => ctx.lineTo(toX(h), toY(m)));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(129,140,248,0.07)';
+    ctx.fill();
+  }
+
+  // loop strokes
+  const loopColor = isSP ? '#fcd34d' : '#818cf8';
+  ctx.strokeStyle = loopColor;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+
+  for (const pts of [upper, lower]) {
+    ctx.beginPath();
+    pts.forEach(([h,m],i) => { const x=toX(h),y=toY(m); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+    ctx.stroke();
+  }
+
+  // direction arrows on loop
+  function drawArrow(x1,y1,x2,y2,color) {
+    const ang = Math.atan2(y2-y1, x2-x1), len=9;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len*Math.cos(ang-0.42), y2 - len*Math.sin(ang-0.42));
+    ctx.lineTo(x2 - len*Math.cos(ang+0.42), y2 - len*Math.sin(ang+0.42));
+    ctx.closePath(); ctx.fill();
+  }
+
+  const ui = Math.round(upper.length * 0.62);
+  const li = Math.round(lower.length * 0.18);
+  drawArrow(toX(upper[ui-3][0]),toY(upper[ui-3][1]), toX(upper[ui][0]),toY(upper[ui][1]), loopColor);
+  drawArrow(toX(lower[li+3][0]),toY(lower[li+3][1]), toX(lower[li][0]),toY(lower[li][1]), loopColor);
+
+  // annotation dots + labels
+  const annotColor = '#6ee7b7';
+  ctx.fillStyle = annotColor;
+  const annotPts = isSP
+    ? [[0, 0, '  origin']]
+    : [[Hc,0,'+Hc'], [-Hc,0,'−Hc'], [0,Mr,'+Mr'], [0,-Mr,'−Mr'], [Hmax, Ms, '+Ms'], [-Hmax, -Ms, '−Ms']];
+
+  ctx.font = '11px IBM Plex Mono, monospace';
+  ctx.fillStyle = annotColor;
+  annotPts.forEach(([h,m,lbl]) => {
+    const x = toX(h), y = toY(m);
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = annotColor;
+    ctx.textAlign = h >= 0 ? 'left' : 'right';
+    const ox = h >= 0 ? 8 : -8;
+    const oy = m >= 0 ? -6 : 14;
+    ctx.fillText(lbl, x + ox, y + oy);
+    ctx.fillStyle = annotColor;
+  });
+
+  // SP label
+  if (isSP) {
+    ctx.fillStyle = '#fcd34d';
+    ctx.font = '11px IBM Plex Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('superparamagnetic — no remanence, no coercivity', mx + 8, my + 18);
+  }
+}
+
+// apply first preset on load
+applyPreset(PRESETS[0]);
+
+// redraw on resize
+const ro = new ResizeObserver(() => draw());
+ro.observe(document.querySelector('.canvas-wrap'));
+</script>
+</body>
+</html>
